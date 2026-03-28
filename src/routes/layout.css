@@ -1,0 +1,34 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@theme {
+  /* ── Backgrounds ── */
+  --color-bg:             #0E0E10; /* page background */
+  --color-surface:        #18181B; /* cards, panels */
+  --color-surface-raised: #1F1F23; /* inputs, elevated elements */
+
+  /* ── Borders ── */
+  --color-stroke:         #2A2A2D;
+  --color-stroke-subtle:  #1F1F23;
+
+  /* ── Foreground (text) ── */
+  --color-fg:             #EFEFF1;
+  --color-fg-muted:       #ADADB8;
+  --color-fg-faint:       #53535F;
+
+  /* ── Twitch brand ── */
+  --color-twitch:         #9147FF; /* primary purple */
+  --color-twitch-dark:    #772CE8; /* hover / pressed */
+  --color-twitch-deeper:  #3D1A78; /* subtle tinted backgrounds */
+  --color-twitch-light:   #BF94FF; /* text on dark, badges */
+
+  /* ── Status ── */
+  --color-success:        #00C8AF;
+  --color-error:          #EB0400;
+}
+
+/* Global base */
+html, body {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+}

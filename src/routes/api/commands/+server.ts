@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { resolve } from 'path';
 import type { Command } from '$lib/twitch/chatParser';
 
-const FILE_PATH = resolve('commands.json');
+const FILE_PATH = resolve('data/commands.json');
 
 export async function GET() {
 	const raw = await readFile(FILE_PATH, 'utf-8');

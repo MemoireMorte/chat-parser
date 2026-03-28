@@ -1,0 +1,15 @@
+services:
+  twitchtool:
+    build:
+      context: .
+      args:
+        PUBLIC_TWITCH_CLIENT_ID: ${PUBLIC_TWITCH_CLIENT_ID}
+        PUBLIC_TWITCH_REDIRECT_URI: ${PUBLIC_TWITCH_REDIRECT_URI}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
+      ORIGIN: ${ORIGIN:-http://localhost:3000}
+    restart: unless-stopped

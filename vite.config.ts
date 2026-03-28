@@ -6,7 +6,7 @@ export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	server: {
 		watch: {
-			ignored: ['**/commands.json', '**/ignored.json', '**/media/**']
+			ignored: ['**/data/**']
 		}
 	}
 });

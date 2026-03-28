@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { DISCORD_WEBHOOK_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 export async function POST({ request }) {
 	const { url, username } = await request.json();
@@ -8,7 +8,7 @@ export async function POST({ request }) {
 		throw error(400, 'Missing url');
 	}
 
-	const res = await fetch(DISCORD_WEBHOOK_URL, {
+	const res = await fetch(env.DISCORD_WEBHOOK_URL, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({

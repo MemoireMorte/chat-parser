@@ -3,7 +3,7 @@ import { readFile, rename, writeFile } from 'fs/promises';
 import { resolve, basename, extname } from 'path';
 import { lookup } from 'mrmime';
 
-const MEDIA_DIR = resolve('media');
+const MEDIA_DIR = resolve('data/media');
 
 export async function GET({ params }) {
 	// Sanitize: ensure no path traversal
@@ -42,7 +42,7 @@ export async function PATCH({ params, request }) {
 	await rename(resolve(MEDIA_DIR, oldName), resolve(MEDIA_DIR, newName));
 
 	// Update any commands that reference the old filename
-	const commandsPath = resolve('commands.json');
+	const commandsPath = resolve('data/commands.json');
 	const commands = JSON.parse(await readFile(commandsPath, 'utf-8'));
 	let changed = false;
 	for (const cmd of commands) {

@@ -10,8 +10,8 @@ A personal streaming dashboard for Twitch. Monitors chat in real-time, triggers 
 - **Sound triggers** — plays audio files in the browser when a command fires
 - **Auto-reply** — sends a message back to chat when a command fires (requires login)
 - **URL detection** — catches any URL posted in chat and forwards it to a Discord channel
-- **Command manager** — create, edit, enable/disable, and delete commands through the UI; persisted to `commands.json`
-- **Media manager** — upload audio files to the server and attach them to commands in one click
+- **Command manager** — create, edit, enable/disable, and delete commands through the UI; persisted to `data/commands.json`
+- **Media manager** — upload audio files to the server, rename them, and attach them to commands in one click
 - **Ignore list** — block specific users from triggering commands or URL detection
 - **Permission levels** — commands can be restricted to everyone, moderators, or the broadcaster only
 - **Cooldowns** — per-command cooldown in seconds to prevent spam
@@ -72,12 +72,28 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-### Production
+### Production (Node)
 
 ```bash
 npm run build
-npm run preview
+node build
 ```
+
+The app listens on port `3000` by default. Set the `PORT` and `ORIGIN` environment variables as needed:
+
+```bash
+PORT=3000 ORIGIN=http://localhost:3000 node build
+```
+
+### Production (Docker)
+
+```bash
+docker compose up --build
+```
+
+On first run, `entrypoint.sh` initializes the `data/` directory structure automatically. Your data persists in `./data` on the host via a volume mount.
+
+> **Changing the public URL?** Update `ORIGIN` in `docker-compose.yml` and set `PUBLIC_TWITCH_REDIRECT_URI` to the new URL in `.env`, then rebuild with `docker compose up --build`.
 
 ---
 
@@ -110,7 +126,9 @@ In the **Commands** panel:
 
 In the **Media** panel, select an audio file and click **Upload**. Supported formats: `mp3`, `wav`, `ogg`, `flac`, `aac`, `m4a`, `opus`.
 
-Click **+** next to a file to instantly create a matching sound command for it.
+- Click **▶** to preview a sound
+- Click the pencil icon to rename a file — any command using it will be updated automatically
+- Click **+** to instantly create a matching sound command for a file
 
 ### 5. Ignore users
 
@@ -127,22 +145,26 @@ twitchtool/
 │   │   ├── components/
 │   │   │   ├── ChatPanel.svelte       # Chat connection, matches, URL detection
 │   │   │   ├── CommandsPanel.svelte   # Command CRUD UI
-│   │   │   └── MediaPanel.svelte      # File upload and media list
+│   │   │   └── MediaPanel.svelte      # File upload, rename, and media list
 │   │   └── twitch/
 │   │       ├── auth.ts                # Twitch OAuth helpers
 │   │       └── chatParser.ts          # IRC WebSocket parser
 │   └── routes/
 │       ├── api/
-│       │   ├── commands/              # GET/POST commands.json
+│       │   ├── commands/              # GET/POST data/commands.json
 │       │   ├── discord/               # POST to Discord webhook
-│       │   ├── ignored/               # GET/POST/DELETE ignored.json
-│       │   └── media/                 # GET list, POST upload, GET file
+│       │   ├── ignored/               # GET/POST/DELETE data/ignored.json
+│       │   └── media/                 # GET list, POST upload, GET/PATCH file
 │       ├── +layout.svelte
 │       ├── +page.svelte               # Main 3-column layout
 │       └── +page.server.ts            # SSR data loader
-├── media/                             # Uploaded audio files
-├── commands.json                      # Persisted commands
-├── ignored.json                       # Persisted ignore list
+├── data/                              # User data — mount as a Docker volume
+│   ├── media/                         # Uploaded audio files
+│   ├── commands.json                  # Persisted commands
+│   └── ignored.json                   # Persisted ignore list
+├── Dockerfile
+├── docker-compose.yml
+├── entrypoint.sh                      # Initializes data/ on first Docker run
 ├── .env                               # Local environment variables (not committed)
 └── .env.example                       # Environment variable template
 ```
@@ -151,10 +173,22 @@ twitchtool/
 
 ## Data persistence
 
-All data is stored as plain JSON files at the project root — no database required.
+All data lives in the `data/` folder — no database required. In Docker, this folder is mounted as a volume so your data survives container rebuilds.
 
-| File | Contents |
+| Path | Contents |
 |---|---|
-| `commands.json` | Array of command objects |
-| `ignored.json` | Array of ignored usernames (lowercase) |
-| `media/` | Uploaded audio files |
+| `data/commands.json` | Array of command objects |
+| `data/ignored.json` | Array of ignored usernames (lowercase) |
+| `data/media/` | Uploaded audio files |
+
+---
+
+## Environment variables
+
+| Variable | When resolved | Required | Description |
+|---|---|---|---|
+| `PUBLIC_TWITCH_CLIENT_ID` | Build time | Yes | Twitch application client ID |
+| `PUBLIC_TWITCH_REDIRECT_URI` | Build time | Yes | OAuth redirect URL |
+| `DISCORD_WEBHOOK_URL` | Runtime | No | Discord webhook for URL sharing |
+| `ORIGIN` | Runtime | Yes (prod) | Public URL of the app (e.g. `http://localhost:3000`) |
+| `PORT` | Runtime | No | Port to listen on (default: `3000`) |

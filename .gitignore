@@ -30,7 +30,8 @@ vite.config.ts.timestamp-*
 .claude
 .mcp.json
 
-# Media
-media/*
-commands.json
-ignored.json
+# Data (user-specific, mount as volume in Docker)
+data/media/*
+data/commands.json
+data/ignored.json
+!data/media/.gitkeep

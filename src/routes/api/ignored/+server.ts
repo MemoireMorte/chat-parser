@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { readFile, writeFile } from 'fs/promises';
 import { resolve } from 'path';
 
-const PATH = resolve('ignored.json');
+const PATH = resolve('data/ignored.json');
 
 async function readIgnored(): Promise<string[]> {
 	try {

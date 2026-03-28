@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { readdir, writeFile } from 'fs/promises';
 import { resolve, basename } from 'path';
 
-const MEDIA_DIR = resolve('media');
+const MEDIA_DIR = resolve('data/media');
 
 export async function GET() {
 	const files = await readdir(MEDIA_DIR);

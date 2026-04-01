@@ -71,7 +71,7 @@
 {/if}
 
 <div class="grid h-screen grid-cols-3 divide-x divide-stroke font-mono">
-	<ChatPanel {auth} {commands} {ignored} onLogout={logout} />
+	<ChatPanel {auth} {commands} {ignored} hasDiscord={data.hasDiscord} onLogout={logout} />
 	<CommandsPanel bind:commands />
 	<MediaPanel bind:media onAddCommand={addCommandFromMedia} onRename={renameMedia} />
 </div>

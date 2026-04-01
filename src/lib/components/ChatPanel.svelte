@@ -8,10 +8,11 @@
 		auth: TwitchAuth | null;
 		commands: RuntimeCommand[];
 		ignored: string[];
+		hasDiscord: boolean;
 		onLogout: () => void;
 	}
 
-	let { auth, commands, ignored, onLogout }: Props = $props();
+	let { auth, commands, ignored, hasDiscord, onLogout }: Props = $props();
 
 	const STORAGE_KEY = 'twitch-channel-name';
 
@@ -38,14 +39,14 @@
 				} else if (match.command.type === 'message') {
 					parser?.sendMessage(match.command.content);
 				}
-				}, auth, (match) => {
+				}, auth, hasDiscord ? (match) => {
 				urlMatches = [match, ...urlMatches].slice(0, 50);
 				fetch('/api/discord', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ url: match.url, username: match.message.username })
 				});
-			}, [...ignoredSet]);
+			} : null, [...ignoredSet]);
 		} catch (e) {
 			connectError = (e as Error).message;
 			return;

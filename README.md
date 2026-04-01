@@ -1,4 +1,4 @@
-# TwitchTool
+# chat-parser
 
 A personal streaming dashboard for Twitch. Monitors chat in real-time, triggers sounds or auto-replies based on custom commands, detects shared URLs and forwards them to Discord, and lets you manage everything through a browser UI.
 
@@ -29,7 +29,7 @@ A personal streaming dashboard for Twitch. Monitors chat in real-time, triggers 
 
 ```bash
 git clone <repo-url>
-cd twitchtool
+cd chat-parser
 npm install
 ```
 
@@ -46,12 +46,15 @@ cp .env.example .env
 ### `PUBLIC_TWITCH_CLIENT_ID`
 
 1. Go to [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) and create a new application
-2. Set the **OAuth Redirect URL** to `http://localhost:5173` (or your production URL)
+2. Add the OAuth Redirect URLs you need (e.g. `http://localhost:5173` for dev, `http://localhost:3000` for production)
 3. Copy the **Client ID** into `.env`
 
 ### `PUBLIC_TWITCH_REDIRECT_URI`
 
-The URL Twitch will redirect to after login. Use `http://localhost:5173` for local development.
+The URL Twitch will redirect to after login. This value is **baked in at build time**, so it must match the environment you're building for:
+
+- Local development (`npm run dev`): `http://localhost:5173`
+- Docker / production build: `http://localhost:3000` (or your public URL)
 
 ### `DISCORD_WEBHOOK_URL`
 
@@ -139,7 +142,7 @@ Click the block icon next to any command match or detected URL to add that user 
 ## Project structure
 
 ```
-twitchtool/
+chat-parser/
 ├── src/
 │   ├── lib/
 │   │   ├── components/

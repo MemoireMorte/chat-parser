@@ -1,5 +1,6 @@
 import { readFile, readdir } from 'fs/promises';
 import { resolve } from 'path';
+import { env } from '$env/dynamic/private';
 import type { Command } from '$lib/twitch/chatParser';
 
 export async function load() {
@@ -10,5 +11,6 @@ export async function load() {
 	]);
 	const commands: Command[] = JSON.parse(commandsRaw);
 	const ignored: string[] = JSON.parse(ignoredRaw);
-	return { commands, media, ignored };
+	const hasDiscord = !!env.DISCORD_WEBHOOK_URL;
+	return { commands, media, ignored, hasDiscord };
 }

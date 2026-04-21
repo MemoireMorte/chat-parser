@@ -21,9 +21,9 @@
 		const token = parseTokenFromHash(window.location.hash);
 		if (token) {
 			history.replaceState(null, '', window.location.pathname);
-			validateToken(token).then((username) => {
-				if (username) {
-					auth = { token, username };
+			validateToken(token).then((result) => {
+				if (result) {
+					auth = { token, ...result };
 					storeAuth(auth);
 				}
 			});
@@ -36,11 +36,29 @@
 	}
 
 	// --- Shared state ---
-	let commands = $state<RuntimeCommand[]>(data.commands.map((c) => ({ ...c, id: uid() })));
+	let commands = $state<RuntimeCommand[]>(data.commands.map((c) => ({ volume: 1, ...c, id: uid() })));
 	let media = $state<string[]>(data.media);
 	let ignored = $state<string[]>(data.ignored);
 
 	let interacted = $state(false);
+
+	const builtInCommand = $derived<RuntimeCommand>((() => {
+		const eligible = commands.filter(c => c.enabled && c.permission === 'everyone');
+		const messages = eligible.filter(c => c.type === 'message').map(c => `!${c.trigger}`);
+		const sounds = eligible.filter(c => c.type === 'sound').map(c => `!${c.trigger}`);
+		const parts: string[] = [];
+		if (messages.length) parts.push(`Messages: ${messages.join(', ')}`);
+		if (sounds.length) parts.push(`Sounds: ${sounds.join(', ')}`);
+		return {
+			id: '__built-in-commands__',
+			trigger: 'commands',
+			type: 'message',
+			cooldown: 0,
+			content: parts.join(' | ') || 'No commands available.',
+			enabled: true,
+			permission: 'everyone',
+		};
+	})());
 
 	function renameMedia(oldName: string, newName: string) {
 		commands = commands.map((c) => c.content === oldName ? { ...c, content: newName } : c);
@@ -71,7 +89,7 @@
 {/if}
 
 <div class="grid h-screen grid-cols-3 divide-x divide-stroke font-mono">
-	<ChatPanel {auth} {commands} {ignored} hasDiscord={data.hasDiscord} onLogout={logout} />
-	<CommandsPanel bind:commands />
+	<ChatPanel {auth} commands={[builtInCommand, ...commands]} {ignored} hasDiscord={data.hasDiscord} onLogout={logout} />
+	<CommandsPanel bind:commands {builtInCommand} />
 	<MediaPanel bind:media onAddCommand={addCommandFromMedia} onRename={renameMedia} />
 </div>

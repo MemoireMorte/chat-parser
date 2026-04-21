@@ -45,6 +45,23 @@
 		renameValue = '';
 	}
 
+	async function deleteMedia(filename: string) {
+		if (!confirm(`Delete "${filename}"?`)) return;
+
+		const res = await fetch(`/api/media/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+
+		if (res.status === 409) {
+			const { message } = await res.json().catch(() => ({ message: '{}' }));
+			const { usedBy = [] }: { usedBy: string[] } = JSON.parse(message);
+			alert(`Cannot delete "${filename}" — used by command(s): ${usedBy.map((t: string) => '!' + t).join(', ')}`);
+			return;
+		}
+
+		if (res.ok) {
+			media = media.filter((f) => f !== filename);
+		}
+	}
+
 	async function commitRename(oldName: string) {
 		const dot = oldName.lastIndexOf('.');
 		const ext = dot !== -1 ? oldName.slice(dot) : '';
@@ -81,7 +98,7 @@
 		<p class="text-sm text-fg-faint">No media uploaded yet.</p>
 	{:else}
 		<ul class="flex-1 space-y-2 overflow-y-auto">
-			{#each media as filename}
+			{#each media as filename (filename)}
 				{@const isSound = SOUND_EXTENSIONS.has(filename.split('.').pop()?.toLowerCase() ?? '')}
 				<li class="flex items-center gap-2 rounded border border-stroke bg-surface px-3 py-2 text-sm text-fg">
 					{#if renamingFile === filename}
@@ -118,6 +135,13 @@
 								title="Add command"
 								onclick={() => onAddCommand(filename)}
 							>+</button>
+							<button
+								class="text-fg-faint hover:text-red-400"
+								title="Delete"
+								onclick={() => deleteMedia(filename)}
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+							</button>
 						</div>
 					{/if}
 				</li>

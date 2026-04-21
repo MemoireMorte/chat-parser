@@ -6,6 +6,8 @@ export interface Command {
 	content: string;
 	enabled: boolean;
 	permission: 'everyone' | 'moderator' | 'broadcaster';
+	/** Playback volume 0–1, only used for sound commands */
+	volume?: number;
 }
 
 /** Command with a runtime-only UID, assigned on load and never persisted */

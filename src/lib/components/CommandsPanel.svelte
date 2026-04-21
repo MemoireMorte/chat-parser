@@ -1,11 +1,13 @@
 <script lang="ts">
+	import { SvelteSet } from 'svelte/reactivity';
 	import type { RuntimeCommand, Command } from '$lib/twitch/chatParser';
 
 	interface Props {
 		commands: RuntimeCommand[];
+		builtInCommand: RuntimeCommand;
 	}
 
-	let { commands = $bindable() }: Props = $props();
+	let { commands = $bindable(), builtInCommand }: Props = $props();
 
 	function uid(): string {
 		return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -14,18 +16,16 @@
 	let pristine = $state(true);
 	let saving = $state(false);
 	let saveStatus = $state<'idle' | 'ok' | 'error'>('idle');
-	let expanded = $state(new Set<string>());
+	const expanded = new SvelteSet<string>();
 
 	function toggle(id: string) {
-		const next = new Set(expanded);
-		next.has(id) ? next.delete(id) : next.add(id);
-		expanded = next;
+		expanded.has(id) ? expanded.delete(id) : expanded.add(id);
 	}
 
 	function addCommand() {
 		const id = uid();
-		commands = [...commands, { id, trigger: '', type: 'message', cooldown: 30, content: '', enabled: true, permission: 'everyone' }];
-		expanded = new Set([...expanded, id]);
+		commands = [...commands, { id, trigger: '', type: 'message', cooldown: 30, content: '', enabled: true, permission: 'everyone', volume: 1 }];
+		expanded.add(id);
 		pristine = false;
 	}
 
@@ -75,7 +75,12 @@
 	</div>
 
 	<ul class="flex-1 space-y-2 overflow-y-auto">
-		{#each commands as cmd, i}
+		<li class="flex items-center gap-2 rounded border border-dashed border-stroke bg-surface px-3 py-2 text-sm">
+			<span class="font-semibold text-twitch-light">!{builtInCommand.trigger}</span>
+			<span class="min-w-0 flex-1 truncate text-fg-faint">{builtInCommand.content}</span>
+			<span class="shrink-0 rounded border border-stroke px-1.5 py-0.5 text-xs text-fg-faint">auto</span>
+		</li>
+		{#each commands as cmd, i (cmd.id)}
 			{@const open = expanded.has(cmd.id)}
 			<li class="rounded border {cmd.enabled ? 'border-stroke bg-surface' : 'border-dashed border-stroke bg-bg'}">
 				<!-- Always-visible header row -->
@@ -84,7 +89,7 @@
 						type="checkbox"
 						class="accent-twitch cursor-pointer"
 						bind:checked={cmd.enabled}
-						onchange={() => pristine = false}
+						onchange={save}
 					/>
 					<button
 						class="flex-1 text-left text-sm {cmd.trigger ? 'text-fg' : 'text-fg-faint'}"
@@ -93,6 +98,7 @@
 					<span class="text-xs text-fg-faint">{cmd.type}</span>
 					<button
 						class="text-fg-faint hover:text-fg transition-transform {open ? 'rotate-180' : ''}"
+						title={open ? 'Collapse' : 'Expand'}
 						onclick={() => toggle(cmd.id)}
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -111,7 +117,7 @@
 								oninput={() => pristine = false}
 								placeholder="trigger"
 							/>
-							<button class="text-fg-faint hover:text-error" onclick={() => removeCommand(i)}>
+							<button class="text-fg-faint hover:text-error" title="Delete command" onclick={() => removeCommand(i)}>
 								<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 									<polyline points="3 6 5 6 21 6"/>
 									<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -150,11 +156,26 @@
 							oninput={() => pristine = false}
 							placeholder={cmd.type === 'sound' ? 'file.mp3' : 'Message text'}
 						></textarea>
+						{#if cmd.type === 'sound'}
+							<label class="flex flex-col gap-1 text-xs text-fg-muted">
+								Volume — {Math.round((cmd.volume ?? 1) * 100)}%
+								<input
+									type="range"
+									min="0"
+									max="1"
+									step="0.01"
+									value={cmd.volume ?? 1}
+									oninput={(e) => { cmd.volume = +e.currentTarget.value; }}
+									onchange={save}
+									class="accent-twitch w-full cursor-pointer"
+								/>
+							</label>
+						{/if}
 						<div class="flex gap-2">
-							{#each (['everyone', 'moderator', 'broadcaster'] as Command['permission'][]) as level}
+							{#each (['everyone', 'moderator', 'broadcaster'] as Command['permission'][]) as level (level)}
 								<button
 									class="flex-1 rounded border py-1 text-xs transition-colors {cmd.permission === level ? 'border-twitch bg-twitch-deeper text-twitch-light' : 'border-stroke text-fg-faint hover:border-twitch hover:text-fg'}"
-									onclick={() => { cmd.permission = level; pristine = false; }}
+									onclick={() => { cmd.permission = level; save(); }}
 								>{level}</button>
 							{/each}
 						</div>

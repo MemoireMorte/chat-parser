@@ -2,17 +2,19 @@ import { json, error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 
 export async function POST({ request }) {
-	const { url, username } = await request.json();
+	const { url, username, message } = await request.json();
 
 	if (!url || typeof url !== 'string') {
 		throw error(400, 'Missing url');
 	}
 
+	const context = message && typeof message === 'string' ? `\n> ${message}` : '';
+
 	const res = await fetch(env.DISCORD_WEBHOOK_URL, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
-			content: `**${username}** a partagé un lien: ${url}`
+			content: `**${username}** a partagé un lien:${context}`
 		})
 	});
 

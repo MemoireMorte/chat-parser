@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { browser } from '$app/environment';
+	import { PUBLIC_TWITCH_CLIENT_ID } from '$env/static/public';
 	import { TwitchChatParser, type CommandMatch, type UrlMatch, type RuntimeCommand } from '$lib/twitch/chatParser';
 	import { getLoginUrl, type TwitchAuth } from '$lib/twitch/auth';
 
@@ -24,6 +26,26 @@
 	let urlMatches = $state<UrlMatch[]>([]);
 	let parser: TwitchChatParser | null = null;
 
+	async function sendWhisper(toUsername: string, message: string) {
+		if (!auth) return;
+		const userRes = await fetch(`https://api.twitch.tv/helix/users?login=${encodeURIComponent(toUsername)}`, {
+			headers: { 'Authorization': `Bearer ${auth.token}`, 'Client-Id': PUBLIC_TWITCH_CLIENT_ID }
+		});
+		if (!userRes.ok) return;
+		const { data } = await userRes.json();
+		const toUserId: string | undefined = data?.[0]?.id;
+		if (!toUserId) return;
+		await fetch(`https://api.twitch.tv/helix/whispers?from_user_id=${auth.userId}&to_user_id=${toUserId}`, {
+			method: 'POST',
+			headers: {
+				'Authorization': `Bearer ${auth.token}`,
+				'Client-Id': PUBLIC_TWITCH_CLIENT_ID,
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ message })
+		});
+	}
+
 	function connect() {
 		parser?.disconnect();
 		const target = auth ? auth.username : channel.trim();
@@ -35,16 +57,34 @@
 
 				if (match.command.type === 'sound') {
 					const filename = match.command.content.split('/').pop();
-					new Audio(`/api/media/${filename}`).play();
+					const audio = new Audio(`/api/media/${filename}`);
+					audio.volume = match.command.volume ?? 1;
+					audio.play();
 				} else if (match.command.type === 'message') {
 					parser?.sendMessage(match.command.content);
+
+					if (match.command.id === '__built-in-commands__' && (match.message.role === 'moderator' || match.message.role === 'broadcaster')) {
+						const modOnly = commands.filter(c =>
+							c.id !== '__built-in-commands__' &&
+							c.enabled &&
+							c.permission === 'moderator'
+						);
+						if (modOnly.length > 0) {
+							const modMessages = modOnly.filter(c => c.type === 'message').map(c => `!${c.trigger}`);
+							const modSounds = modOnly.filter(c => c.type === 'sound').map(c => `!${c.trigger}`);
+							const parts: string[] = [];
+							if (modMessages.length) parts.push(`Messages: ${modMessages.join(', ')}`);
+							if (modSounds.length) parts.push(`Sons: ${modSounds.join(', ')}`);
+							sendWhisper(match.message.username, `Pour les modérateurs, il y a aussi: ${parts.join(' | ')}`);
+						}
+					}
 				}
 				}, auth, hasDiscord ? (match) => {
 				urlMatches = [match, ...urlMatches].slice(0, 50);
 				fetch('/api/discord', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ url: match.url, username: match.message.username })
+					body: JSON.stringify({ url: match.url, username: match.message.username, message: match.message.message })
 				});
 			} : null, [...ignoredSet]);
 		} catch (e) {

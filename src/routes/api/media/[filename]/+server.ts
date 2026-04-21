@@ -1,5 +1,5 @@
 import { error, json } from '@sveltejs/kit';
-import { readFile, rename, writeFile } from 'fs/promises';
+import { readFile, rename, unlink, writeFile } from 'fs/promises';
 import { resolve, basename, extname } from 'path';
 import { lookup } from 'mrmime';
 
@@ -56,4 +56,29 @@ export async function PATCH({ params, request }) {
 	}
 
 	return json({ ok: true, newName, commandsUpdated: changed });
+}
+
+export async function DELETE({ params }) {
+	const filename = basename(params.filename);
+	if (!filename || filename !== params.filename) {
+		throw error(400, 'Invalid filename');
+	}
+
+	const commandsPath = resolve('data/commands.json');
+	const commands = JSON.parse(await readFile(commandsPath, 'utf-8'));
+	const usedBy: string[] = commands
+		.filter((cmd: { type: string; content: string; trigger: string }) => cmd.type === 'sound' && cmd.content === filename)
+		.map((cmd: { trigger: string }) => cmd.trigger);
+
+	if (usedBy.length > 0) {
+		throw error(409, JSON.stringify({ usedBy }));
+	}
+
+	try {
+		await unlink(resolve(MEDIA_DIR, filename));
+	} catch {
+		throw error(404, 'File not found');
+	}
+
+	return json({ ok: true });
 }

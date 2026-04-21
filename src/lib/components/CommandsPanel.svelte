@@ -5,9 +5,10 @@
 	interface Props {
 		commands: RuntimeCommand[];
 		builtInCommand: RuntimeCommand;
+		builtInEnabled: boolean;
 	}
 
-	let { commands = $bindable(), builtInCommand }: Props = $props();
+	let { commands = $bindable(), builtInCommand, builtInEnabled = $bindable() }: Props = $props();
 
 	function uid(): string {
 		return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -32,6 +33,14 @@
 	function removeCommand(index: number) {
 		commands = commands.filter((_, i) => i !== index);
 		pristine = false;
+	}
+
+	async function saveBuiltInEnabled() {
+		await fetch('/api/settings', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ commandsEnabled: builtInEnabled })
+		});
 	}
 
 	async function save() {
@@ -75,8 +84,14 @@
 	</div>
 
 	<ul class="flex-1 space-y-2 overflow-y-auto">
-		<li class="flex items-center gap-2 rounded border border-dashed border-stroke bg-surface px-3 py-2 text-sm">
-			<span class="font-semibold text-twitch-light">!{builtInCommand.trigger}</span>
+		<li class="flex items-center gap-2 rounded border border-dashed {builtInEnabled ? 'border-stroke bg-surface' : 'border-stroke bg-bg'} px-3 py-2 text-sm">
+			<input
+				type="checkbox"
+				class="accent-twitch cursor-pointer"
+				bind:checked={builtInEnabled}
+				onchange={saveBuiltInEnabled}
+			/>
+			<span class="font-semibold {builtInEnabled ? 'text-twitch-light' : 'text-fg-faint'}">!{builtInCommand.trigger}</span>
 			<span class="min-w-0 flex-1 truncate text-fg-faint">{builtInCommand.content}</span>
 			<span class="shrink-0 rounded border border-stroke px-1.5 py-0.5 text-xs text-fg-faint">auto</span>
 		</li>

@@ -34,6 +34,15 @@ export interface UrlMatch {
 	detectedAt: Date;
 }
 
+export type SubEventType = 'sub' | 'resub' | 'subgift' | 'anonsubgift' | 'submysterygift';
+
+export interface SubEvent {
+	username: string;
+	type: SubEventType;
+	months?: number;
+	detectedAt: Date;
+}
+
 import type { TwitchAuth } from './auth';
 
 export class TwitchChatParser {
@@ -42,6 +51,7 @@ export class TwitchChatParser {
 	private commands: RuntimeCommand[];
 	private onCommand: (match: CommandMatch) => void;
 	private onUrl: ((match: UrlMatch) => void) | null;
+	private onSub: ((event: SubEvent) => void) | null;
 	private auth: TwitchAuth | null;
 	private ignored: Set<string>;
 	private _connected = false;
@@ -54,7 +64,8 @@ export class TwitchChatParser {
 		onCommand: (match: CommandMatch) => void,
 		auth: TwitchAuth | null = null,
 		onUrl: ((match: UrlMatch) => void) | null = null,
-		ignored: string[] = []
+		ignored: string[] = [],
+		onSub: ((event: SubEvent) => void) | null = null
 	) {
 		const sanitized = channel.toLowerCase().replace(/^#/, '');
 		// Twitch usernames: 1–25 chars, alphanumeric + underscores only.
@@ -66,6 +77,7 @@ export class TwitchChatParser {
 		this.commands = commands;
 		this.onCommand = onCommand;
 		this.onUrl = onUrl;
+		this.onSub = onSub;
 		this.auth = auth;
 		this.ignored = new Set(ignored.map((u) => u.toLowerCase()));
 	}
@@ -143,6 +155,9 @@ export class TwitchChatParser {
 				this.checkCommands(parsed);
 				this.checkUrls(parsed);
 			}
+
+			const subEvent = this.parseUsernotice(line);
+			if (subEvent) this.onSub?.(subEvent);
 		}
 	}
 
@@ -162,6 +177,25 @@ export class TwitchChatParser {
 			channel: match[3],
 			message: match[4],
 			role
+		};
+	}
+
+	private parseUsernotice(line: string): SubEvent | null {
+		if (!this.onSub) return null;
+		const match = line.match(/^@(\S+) :tmi\.twitch\.tv USERNOTICE #\S+/);
+		if (!match) return null;
+		const tags: Record<string, string> = Object.fromEntries(
+			match[1].split(';').map((t) => t.split('=') as [string, string])
+		);
+		const SUB_TYPES: SubEventType[] = ['sub', 'resub', 'subgift', 'anonsubgift', 'submysterygift'];
+		const type = tags['msg-id'] as SubEventType;
+		if (!SUB_TYPES.includes(type)) return null;
+		const months = parseInt(tags['msg-param-cumulative-months'] ?? '0') || undefined;
+		return {
+			username: tags['login'] ?? tags['display-name'] ?? 'anonymous',
+			type,
+			months,
+			detectedAt: new Date()
 		};
 	}
 

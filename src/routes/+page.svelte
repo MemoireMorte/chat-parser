@@ -39,6 +39,11 @@
 	let commands = $state<RuntimeCommand[]>(data.commands.map((c) => ({ volume: 1, ...c, id: uid() })));
 	let media = $state<string[]>(data.media);
 	let ignored = $state<string[]>(data.ignored);
+	let subSound = $state<string | null>(data.alerts.subSound);
+	let subVolume = $state<number>(data.alerts.subVolume ?? 1);
+	let subEnabled = $state<boolean>(data.alerts.subEnabled ?? true);
+	let builtInEnabled = $state<boolean>(data.settings.commandsEnabled ?? true);
+	let discordEnabled = $state<boolean>(data.settings.discordEnabled ?? true);
 
 	let interacted = $state(false);
 
@@ -55,7 +60,7 @@
 			type: 'message',
 			cooldown: 0,
 			content: parts.join(' | ') || 'No commands available.',
-			enabled: true,
+			enabled: builtInEnabled,
 			permission: 'everyone',
 		};
 	})());
@@ -89,7 +94,7 @@
 {/if}
 
 <div class="grid h-screen grid-cols-3 divide-x divide-stroke font-mono">
-	<ChatPanel {auth} commands={[builtInCommand, ...commands]} {ignored} hasDiscord={data.hasDiscord} onLogout={logout} />
-	<CommandsPanel bind:commands {builtInCommand} />
+	<ChatPanel {auth} commands={[builtInCommand, ...commands]} {ignored} hasDiscord={data.hasDiscord} bind:subSound bind:subVolume bind:subEnabled bind:discordEnabled {media} onLogout={logout} />
+	<CommandsPanel bind:commands {builtInCommand} bind:builtInEnabled />
 	<MediaPanel bind:media onAddCommand={addCommandFromMedia} onRename={renameMedia} />
 </div>

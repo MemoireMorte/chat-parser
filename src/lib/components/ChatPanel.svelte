@@ -3,7 +3,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { browser } from '$app/environment';
 	import { PUBLIC_TWITCH_CLIENT_ID } from '$env/static/public';
-	import { TwitchChatParser, type CommandMatch, type UrlMatch, type RuntimeCommand } from '$lib/twitch/chatParser';
+	import { TwitchChatParser, type CommandMatch, type UrlMatch, type RuntimeCommand, type SubEvent } from '$lib/twitch/chatParser';
 	import { getLoginUrl, type TwitchAuth } from '$lib/twitch/auth';
 
 	interface Props {
@@ -11,15 +11,60 @@
 		commands: RuntimeCommand[];
 		ignored: string[];
 		hasDiscord: boolean;
+		subSound: string | null;
+		subVolume: number;
+		subEnabled: boolean;
+		discordEnabled: boolean;
+		media: string[];
 		onLogout: () => void;
 	}
 
-	let { auth, commands, ignored, hasDiscord, onLogout }: Props = $props();
+	let { auth, commands, ignored, hasDiscord, subSound = $bindable(), subVolume = $bindable(), subEnabled = $bindable(), discordEnabled = $bindable(), media, onLogout }: Props = $props();
+
+	const SOUND_EXTENSIONS = new Set(['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'opus']);
+
+	async function saveSubSound(value: string | null) {
+		subSound = value;
+		await fetch('/api/alerts', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ subSound: value })
+		});
+	}
+
+	async function saveDiscordEnabled(value: boolean) {
+		discordEnabled = value;
+		await fetch('/api/settings', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ discordEnabled: value })
+		});
+	}
+
+	async function saveSubEnabled(value: boolean) {
+		subEnabled = value;
+		await fetch('/api/alerts', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ subEnabled: value })
+		});
+	}
+
+	async function saveSubVolume(value: number) {
+		subVolume = value;
+		await fetch('/api/alerts', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ subVolume: value })
+		});
+	}
+
+	let subEvents = $state<SubEvent[]>([]);
 
 	const STORAGE_KEY = 'twitch-channel-name';
 
 	let channel = $state(browser ? (localStorage.getItem(STORAGE_KEY) ?? '') : '');
-	let ignoredSet = $state(new Set(ignored.map((u) => u.toLowerCase())));
+	const ignoredSet = new SvelteSet(untrack(() => ignored.map((u) => u.toLowerCase())));
 	let connected = $state(false);
 	let connectError = $state('');
 	let matches = $state<CommandMatch[]>([]);
@@ -81,12 +126,21 @@
 				}
 				}, auth, hasDiscord ? (match) => {
 				urlMatches = [match, ...urlMatches].slice(0, 50);
-				fetch('/api/discord', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ url: match.url, username: match.message.username, message: match.message.message })
-				});
-			} : null, [...ignoredSet]);
+				if (discordEnabled) {
+					fetch('/api/discord', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ url: match.url, username: match.message.username, message: match.message.message })
+					});
+				}
+			} : null, [...ignoredSet], (event) => {
+				subEvents = [event, ...subEvents].slice(0, 50);
+				if (subEnabled && subSound) {
+					const audio = new Audio(`/api/media/${encodeURIComponent(subSound)}`);
+					audio.volume = subVolume;
+					audio.play();
+				}
+			});
 		} catch (e) {
 			connectError = (e as Error).message;
 			return;
@@ -105,7 +159,7 @@
 	async function ignoreUser(username: string) {
 		const normalized = username.toLowerCase();
 		if (ignoredSet.has(normalized)) return;
-		ignoredSet = new Set([...ignoredSet, normalized]);
+		ignoredSet.add(normalized);
 		parser?.addIgnored(normalized);
 		await fetch('/api/ignored', {
 			method: 'POST',
@@ -116,7 +170,7 @@
 
 	async function unignoreUser(username: string) {
 		const normalized = username.toLowerCase();
-		ignoredSet = new Set([...ignoredSet].filter((u) => u !== normalized));
+		ignoredSet.delete(normalized);
 		parser?.removeIgnored(normalized);
 		await fetch('/api/ignored', {
 			method: 'DELETE',
@@ -141,7 +195,7 @@
 				<button class="text-fg-faint hover:text-fg" onclick={onLogout}>Log out</button>
 			</div>
 		{:else}
-			<a href={getLoginUrl()} class="rounded bg-twitch px-3 py-1 text-xs text-fg hover:bg-twitch-dark">
+			<a href={getLoginUrl()} rel="external" class="rounded bg-twitch px-3 py-1 text-xs text-fg hover:bg-twitch-dark">
 				Login with Twitch
 			</a>
 		{/if}
@@ -175,10 +229,70 @@
 		<p class="text-sm text-error">{connectError}</p>
 	{/if}
 
+	{#if hasDiscord}
+		<div class="flex flex-col gap-2">
+			<h3 class="text-xs font-semibold uppercase tracking-wide text-fg-muted">Discord</h3>
+			<label class="flex cursor-pointer items-center gap-2 rounded border {discordEnabled ? 'border-stroke bg-surface' : 'border-dashed border-stroke bg-bg'} px-3 py-2 text-sm">
+				<input
+					type="checkbox"
+					class="accent-twitch cursor-pointer"
+					bind:checked={discordEnabled}
+					onchange={() => saveDiscordEnabled(discordEnabled)}
+				/>
+				<span class="text-fg-muted">Forward links to Discord</span>
+			</label>
+		</div>
+	{/if}
+
+	<div class="flex flex-col gap-2">
+		<h3 class="text-xs font-semibold uppercase tracking-wide text-fg-muted">Alerts</h3>
+		<div class="flex flex-col gap-2 rounded border {subEnabled ? 'border-stroke bg-surface' : 'border-dashed border-stroke bg-bg'} px-3 py-2 text-sm">
+			<div class="flex items-center gap-2">
+				<input
+					type="checkbox"
+					class="accent-twitch cursor-pointer"
+					bind:checked={subEnabled}
+					onchange={() => saveSubEnabled(subEnabled)}
+				/>
+				<span class="shrink-0 text-fg-muted">Subscription</span>
+				<select
+					class="min-w-0 flex-1 rounded border border-stroke bg-surface-raised px-2 py-1 text-fg focus:border-twitch focus:outline-none"
+					value={subSound ?? ''}
+					onchange={(e) => saveSubSound(e.currentTarget.value || null)}
+				>
+					<option value="">— none —</option>
+					{#each media.filter(f => SOUND_EXTENSIONS.has(f.split('.').pop()?.toLowerCase() ?? '')) as f (f)}
+						<option value={f}>{f}</option>
+					{/each}
+				</select>
+				{#if subSound}
+					<button
+						class="shrink-0 text-fg-faint hover:text-fg"
+						title="Preview"
+						onclick={() => { const a = new Audio(`/api/media/${encodeURIComponent(subSound!)}`); a.volume = subVolume; a.play(); }}
+					>▶</button>
+				{/if}
+			</div>
+			<div class="flex items-center gap-2 text-xs text-fg-muted">
+				<span class="shrink-0">Volume — {Math.round(subVolume * 100)}%</span>
+				<input
+					type="range"
+					min="0"
+					max="1"
+					step="0.01"
+					value={subVolume}
+					oninput={(e) => { subVolume = +e.currentTarget.value; }}
+					onchange={(e) => saveSubVolume(+e.currentTarget.value)}
+					class="accent-twitch w-full cursor-pointer"
+				/>
+			</div>
+		</div>
+	</div>
+
 	<div>
 		<p class="mb-2 text-xs text-fg-muted">Watching for commands:</p>
 		<div class="flex flex-wrap gap-2">
-			{#each commands as cmd}
+			{#each commands as cmd (cmd.id)}
 				<span class="rounded bg-twitch-deeper px-2 py-0.5 text-xs text-twitch-light">!{cmd.trigger}</span>
 			{/each}
 		</div>
@@ -188,7 +302,7 @@
 		<div>
 			<p class="mb-2 text-xs text-fg-muted">Ignored users:</p>
 			<div class="flex flex-wrap gap-2">
-				{#each [...ignoredSet].sort() as username}
+				{#each [...ignoredSet].sort() as username (username)}
 					<span class="flex items-center gap-1 rounded bg-surface px-2 py-0.5 text-xs text-fg-muted">
 						{username}
 						<button
@@ -230,6 +344,20 @@
 	</div>
 
 	<div class="flex flex-col gap-1">
+		<p class="text-xs text-fg-muted">{subEvents.length} subscriptions</p>
+		{#if subEvents.length > 0}
+			<ul class="flex-1 space-y-2 overflow-y-auto">
+				{#each subEvents as e (e.detectedAt)}
+					<li class="rounded border border-stroke bg-surface px-3 py-2 text-sm">
+						<span class="font-semibold text-twitch-light">{e.username}</span>
+						<span class="ml-1 text-fg-muted">{e.type}{e.months && e.months > 1 ? ` · ${e.months} months` : ''}</span>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</div>
+
+	<div class="flex flex-col gap-1">
 		<p class="text-xs text-fg-muted">{urlMatches.length} URLs detected</p>
 		{#if urlMatches.length === 0}
 			<p class="text-sm text-fg-faint">No URLs yet.</p>
@@ -239,7 +367,7 @@
 					<li class="flex items-start justify-between gap-2 rounded border border-stroke bg-surface px-3 py-2 text-sm">
 						<span>
 							<span class="ml-1 {m.message.role === 'broadcaster' ? 'text-yellow-400' : m.message.role === 'moderator' ? 'text-green-400' : 'text-fg-muted'}">{m.message.username}:</span>
-							<a href={m.url} target="_blank" rel="noopener noreferrer" class="ml-1 text-twitch-light underline break-all">{m.url}</a>
+							<a href={m.url} target="_blank" rel="external noopener noreferrer" class="ml-1 text-twitch-light underline break-all">{m.url}</a>
 						</span>
 						<button
 							class="shrink-0 text-fg-faint hover:text-error disabled:opacity-30"

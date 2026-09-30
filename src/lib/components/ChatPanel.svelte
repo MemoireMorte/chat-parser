@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { browser } from '$app/environment';
-	import { PUBLIC_TWITCH_CLIENT_ID } from '$env/static/public';
+	import { env } from '$env/dynamic/public';
 	import { TwitchChatParser, type CommandMatch, type UrlMatch, type RuntimeCommand, type SubEvent } from '$lib/twitch/chatParser';
 	import { getLoginUrl, type TwitchAuth } from '$lib/twitch/auth';
 
@@ -74,7 +74,7 @@
 	async function sendWhisper(toUsername: string, message: string) {
 		if (!auth) return;
 		const userRes = await fetch(`https://api.twitch.tv/helix/users?login=${encodeURIComponent(toUsername)}`, {
-			headers: { 'Authorization': `Bearer ${auth.token}`, 'Client-Id': PUBLIC_TWITCH_CLIENT_ID }
+			headers: { 'Authorization': `Bearer ${auth.token}`, 'Client-Id': env.PUBLIC_TWITCH_CLIENT_ID ?? '' }
 		});
 		if (!userRes.ok) return;
 		const { data } = await userRes.json();
@@ -84,7 +84,7 @@
 			method: 'POST',
 			headers: {
 				'Authorization': `Bearer ${auth.token}`,
-				'Client-Id': PUBLIC_TWITCH_CLIENT_ID,
+				'Client-Id': env.PUBLIC_TWITCH_CLIENT_ID ?? '',
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({ message })

@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { readFile, writeFile } from 'fs/promises';
 import { resolve } from 'path';
 
-const FILE_PATH = resolve('settings.json');
+const FILE_PATH = resolve('data/settings.json');
 
 async function readSettings() {
 	const raw = await readFile(FILE_PATH, 'utf-8').catch(() => '{}');

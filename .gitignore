@@ -34,4 +34,7 @@ vite.config.ts.timestamp-*
 data/media/*
 data/commands.json
 data/ignored.json
+data/alerts.json
+data/settings.json
+settings.json
 !data/media/.gitkeep

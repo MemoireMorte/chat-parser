@@ -1,15 +1,62 @@
+name: chat-parser
 services:
   chat-parser:
-    build:
-      context: .
-      args:
-        PUBLIC_TWITCH_CLIENT_ID: ${PUBLIC_TWITCH_CLIENT_ID}
-        PUBLIC_TWITCH_REDIRECT_URI: ${PUBLIC_TWITCH_REDIRECT_URI}
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./data:/app/data
+    image: ghcr.io/memoiremorte/chat-parser:latest
+    container_name: chat-parser
     environment:
-      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
-      ORIGIN: ${ORIGIN:-http://localhost:3000}
+      PUBLIC_TWITCH_CLIENT_ID: ""
+      PUBLIC_TWITCH_REDIRECT_URI: ""
+      ORIGIN: ""
+      DISCORD_WEBHOOK_URL: ""
+    ports:
+      - target: 3000
+        published: "3000"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: /DATA/AppData/chat-parser/data
+        target: /app/data
+    network_mode: bridge
     restart: unless-stopped
+    x-casaos:
+      envs:
+        - container: PUBLIC_TWITCH_CLIENT_ID
+          description:
+            en_us: Client ID of your Twitch app (dev.twitch.tv/console/apps)
+        - container: PUBLIC_TWITCH_REDIRECT_URI
+          description:
+            en_us: OAuth redirect URL, e.g. http://192.168.1.20:3000 — must match the Twitch app exactly
+        - container: ORIGIN
+          description:
+            en_us: URL you open the app with, e.g. http://192.168.1.20:3000
+        - container: DISCORD_WEBHOOK_URL
+          description:
+            en_us: Discord webhook for shared chat links (optional, keep secret)
+      ports:
+        - container: "3000"
+          description:
+            en_us: Web UI port
+      volumes:
+        - container: /app/data
+          description:
+            en_us: Commands, sounds, ignore list and settings
+
+x-casaos:
+  main: chat-parser
+  architectures:
+    - amd64
+    - arm64
+  author: MemoireMorte
+  developer: MemoireMorte
+  title:
+    en_us: Chat Parser
+  tagline:
+    en_us: Twitch chat commands, sounds and link forwarding
+  description:
+    en_us: Watches Twitch chat for !commands, plays sounds, sends auto-replies, shows sub alerts and forwards shared links to Discord.
+  icon: https://raw.githubusercontent.com/MemoireMorte/chat-parser/main/icon.svg
+  category: Utilities
+  scheme: http
+  hostname: ""
+  index: /
+  port_map: "3000"

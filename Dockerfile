@@ -6,12 +6,6 @@ RUN npm ci
 
 COPY . .
 
-# PUBLIC_* vars are baked in at build time — pass them as build args
-ARG PUBLIC_TWITCH_CLIENT_ID
-ARG PUBLIC_TWITCH_REDIRECT_URI
-ENV PUBLIC_TWITCH_CLIENT_ID=$PUBLIC_TWITCH_CLIENT_ID
-ENV PUBLIC_TWITCH_REDIRECT_URI=$PUBLIC_TWITCH_REDIRECT_URI
-
 RUN npm run build
 RUN npm prune --omit=dev
 
@@ -26,7 +20,9 @@ COPY entrypoint.sh ./
 
 RUN chmod +x entrypoint.sh
 
-# DISCORD_WEBHOOK_URL is set at runtime (not baked into the image)
+# All configuration is read at runtime — nothing is baked into the image.
+# Set PUBLIC_TWITCH_CLIENT_ID, PUBLIC_TWITCH_REDIRECT_URI, ORIGIN and
+# DISCORD_WEBHOOK_URL when starting the container.
 ENV PORT=3000
 ENV ORIGIN=http://localhost:3000
 

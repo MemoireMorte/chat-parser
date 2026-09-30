@@ -51,17 +51,19 @@ cp .env.example .env
 
 ### `PUBLIC_TWITCH_REDIRECT_URI`
 
-The URL Twitch will redirect to after login. This value is **baked in at build time**, so it must match the environment you're building for:
+The URL Twitch will redirect to after login. It is read at runtime and must exactly match one of the Redirect URLs registered in your Twitch app:
 
 - Local development (`npm run dev`): `http://localhost:5173`
-- Docker / production build: `http://localhost:3000` (or your public URL)
+- Docker / CasaOS: `http://<server-ip>:3000` (e.g. `http://192.168.1.20:3000`)
 
 ### `DISCORD_WEBHOOK_URL`
 
 1. In your Discord server, go to the target channel → **Edit Channel** → **Integrations** → **Webhooks**
 2. Create a new webhook and copy the URL into `.env`
 
-If you don't use the Discord integration, you can leave this variable empty — the app will still work, only URL forwarding will fail silently.
+If you don't use the Discord integration, leave this variable empty — URL detection is then disabled.
+
+> The webhook URL is a secret: anyone who has it can post to your channel. Keep it in `.env` or in the container settings, never in a committed file.
 
 ---
 
@@ -90,13 +92,37 @@ PORT=3000 ORIGIN=http://localhost:3000 node build
 
 ### Production (Docker)
 
+A prebuilt image (amd64 and arm64) is published to `ghcr.io/memoiremorte/chat-parser:latest` on every push to `main`. No configuration is baked into the image — everything is set through environment variables when the container starts.
+
+**Prebuilt image:**
+
 ```bash
-docker compose up --build
+docker run -d --name chat-parser --restart unless-stopped \
+  -p 3000:3000 \
+  -v ./data:/app/data \
+  -e PUBLIC_TWITCH_CLIENT_ID=your_client_id \
+  -e PUBLIC_TWITCH_REDIRECT_URI=http://192.168.1.20:3000 \
+  -e ORIGIN=http://192.168.1.20:3000 \
+  -e DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/... \
+  ghcr.io/memoiremorte/chat-parser:latest
 ```
 
-On first run, `entrypoint.sh` initializes the `data/` directory structure automatically. Your data persists in `./data` on the host via a volume mount.
+**Build from source** (reads values from `.env`):
 
-> **Changing the public URL?** Update `ORIGIN` in `docker-compose.yml` and set `PUBLIC_TWITCH_REDIRECT_URI` to the new URL in `.env`, then rebuild with `docker compose up --build`.
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+On first run, `entrypoint.sh` initializes the `data/` directory automatically. Your data persists on the host via the volume mount.
+
+### CasaOS
+
+1. In the CasaOS dashboard, open **App Store → Custom Install → Import** and paste the contents of [`docker-compose.yml`](docker-compose.yml).
+2. Fill in the environment variables (`PUBLIC_TWITCH_CLIENT_ID`, `PUBLIC_TWITCH_REDIRECT_URI`, `ORIGIN`, optionally `DISCORD_WEBHOOK_URL`). Use your CasaOS server's IP for the two URLs, e.g. `http://192.168.1.20:3000`.
+3. Add that same URL as an OAuth Redirect URL in your Twitch app.
+4. Install. The app appears on the dashboard; data is stored in `/DATA/AppData/chat-parser/data`.
+
+To update, open the app's settings in CasaOS and click **Update**, or run `docker compose pull && docker compose up -d`.
 
 ---
 
@@ -164,9 +190,12 @@ chat-parser/
 ├── data/                              # User data — mount as a Docker volume
 │   ├── media/                         # Uploaded audio files
 │   ├── commands.json                  # Persisted commands
-│   └── ignored.json                   # Persisted ignore list
+│   ├── ignored.json                   # Persisted ignore list
+│   ├── alerts.json                    # Sub alert sound / volume
+│   └── settings.json                  # Commands / Discord toggles
 ├── Dockerfile
-├── docker-compose.yml
+├── docker-compose.yml                 # CasaOS / prebuilt image
+├── docker-compose.dev.yml             # Local build from source
 ├── entrypoint.sh                      # Initializes data/ on first Docker run
 ├── .env                               # Local environment variables (not committed)
 └── .env.example                       # Environment variable template
@@ -182,6 +211,8 @@ All data lives in the `data/` folder — no database required. In Docker, this f
 |---|---|
 | `data/commands.json` | Array of command objects |
 | `data/ignored.json` | Array of ignored usernames (lowercase) |
+| `data/alerts.json` | Sub alert sound, volume and toggle |
+| `data/settings.json` | Commands / Discord on-off toggles |
 | `data/media/` | Uploaded audio files |
 
 ---
@@ -190,8 +221,8 @@ All data lives in the `data/` folder — no database required. In Docker, this f
 
 | Variable | When resolved | Required | Description |
 |---|---|---|---|
-| `PUBLIC_TWITCH_CLIENT_ID` | Build time | Yes | Twitch application client ID |
-| `PUBLIC_TWITCH_REDIRECT_URI` | Build time | Yes | OAuth redirect URL |
+| `PUBLIC_TWITCH_CLIENT_ID` | Runtime | Yes | Twitch application client ID |
+| `PUBLIC_TWITCH_REDIRECT_URI` | Runtime | Yes | OAuth redirect URL |
 | `DISCORD_WEBHOOK_URL` | Runtime | No | Discord webhook for URL sharing |
 | `ORIGIN` | Runtime | Yes (prod) | Public URL of the app (e.g. `http://localhost:3000`) |
 | `PORT` | Runtime | No | Port to listen on (default: `3000`) |

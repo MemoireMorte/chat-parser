@@ -1,4 +1,4 @@
-import { PUBLIC_TWITCH_CLIENT_ID, PUBLIC_TWITCH_REDIRECT_URI } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 
 const TOKEN_KEY = 'twitch-token';
 const USERNAME_KEY = 'twitch-username';
@@ -12,8 +12,8 @@ export interface TwitchAuth {
 
 export function getLoginUrl(): string {
 	const params = new URLSearchParams({
-		client_id: PUBLIC_TWITCH_CLIENT_ID,
-		redirect_uri: PUBLIC_TWITCH_REDIRECT_URI,
+		client_id: env.PUBLIC_TWITCH_CLIENT_ID ?? '',
+		redirect_uri: env.PUBLIC_TWITCH_REDIRECT_URI ?? '',
 		response_type: 'token',
 		scope: 'chat:read chat:edit user:manage:whispers'
 	});
